@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <!-- Set the splash screen background, animated icon, and animation duration. -->
+        <item name="windowSplashScreenBackground">#FAD900</item>
+        
+        <!-- Use a vector drawable representing the logo instead of a raw SVG if possible, 
+             but we will point to the raw asset if it parses. Note: The SplashScreen API 
+             strictly expects an AnimatedVectorDrawable or VectorDrawable. If the raw SVG 
+             fails at compile time here, we will need to wrap it or convert it. -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_bushers_logo</item>
+        
+        <item name="windowSplashScreenAnimationDuration">1000</item>
+
+        <!-- Set the theme of the Activity that directly follows your splash screen. -->
+        <item name="postSplashScreenTheme">@android:style/Theme.DeviceDefault.NoActionBar</item>
+    </style>
+</resources>
