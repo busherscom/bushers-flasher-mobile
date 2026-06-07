@@ -46,6 +46,7 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import com.bushers.flasher.ui.main.DeviceStatus
 import com.bushers.flasher.ui.main.FlasherViewModel
 
 import androidx.compose.ui.res.stringResource
@@ -100,33 +101,36 @@ fun DevicesScreen(viewModel: FlasherViewModel, modifier: Modifier = Modifier) {
                     DeviceCard(
                         deviceName = device.name,
                         icon = Icons.Default.Usb,
-                        statusText = when {
-                            !device.hasPermission -> stringResource(R.string.need_permission)
-                            device.chipType == "Unknown" && device.isProbing -> "PROBING..."
-                            device.chipType != "Unknown" && device.isCompatible -> "COMPATIBLE"
-                            device.chipType != "Unknown" && !device.isCompatible -> "INCOMPATIBLE"
+                        statusText = when (device.status) {
+                            DeviceStatus.NEED_PERMISSION -> stringResource(R.string.need_permission)
+                            DeviceStatus.PROBING -> "PROBING..."
+                            DeviceStatus.COMPATIBLE -> "COMPATIBLE"
+                            DeviceStatus.INCOMPATIBLE -> "INCOMPATIBLE"
+                            DeviceStatus.PROBE_FAILED -> "PROBE FAILED"
                             else -> stringResource(R.string.ready)
                         },
-                        statusColor = when {
-                            !device.hasPermission -> Color(0xFFFAD900)
-                            device.chipType != "Unknown" && device.isCompatible -> MaterialTheme.colorScheme.secondary
-                            device.chipType != "Unknown" && !device.isCompatible -> MaterialTheme.colorScheme.error
+                        statusColor = when (device.status) {
+                            DeviceStatus.NEED_PERMISSION -> Color(0xFFFAD900)
+                            DeviceStatus.COMPATIBLE -> MaterialTheme.colorScheme.secondary
+                            DeviceStatus.INCOMPATIBLE -> MaterialTheme.colorScheme.error
+                            DeviceStatus.PROBE_FAILED -> MaterialTheme.colorScheme.error
                             else -> MaterialTheme.colorScheme.secondary
                         },
-                        statusTextColor = when {
-                            !device.hasPermission -> Color(0xFF212529)
+                        statusTextColor = when (device.status) {
+                            DeviceStatus.NEED_PERMISSION -> Color(0xFF212529)
                             else -> Color.White
                         },
                         info1Label = "CHIP TYPE",
                         info1Value = device.chipType,
-                        info2Label = "VID:PID",
-                        info2Value = "${String.format("%04X", device.driver.device.vendorId)}:${String.format("%04X", device.driver.device.productId)}",
-                        isWarning = !device.hasPermission || (device.chipType != "Unknown" && !device.isCompatible),
+                        info2Label = stringResource(R.string.port),
+                        info2Value = "USB",
+                        isWarning = device.status == DeviceStatus.NEED_PERMISSION || 
+                                    device.status == DeviceStatus.INCOMPATIBLE ||
+                                    device.status == DeviceStatus.PROBE_FAILED,
                         isOffline = false,
                         onSelectClick = {
                             if (device.hasPermission) {
                                 viewModel.selectDevice(device)
-                                // Auto-navigate is not implemented yet, so we stay on screen or manually navigate
                             } else {
                                 viewModel.requestPermission(device)
                             }
