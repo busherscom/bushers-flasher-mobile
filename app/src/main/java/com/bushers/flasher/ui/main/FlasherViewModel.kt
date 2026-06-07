@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.hardware.usb.UsbDevice
+import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbManager
 import android.os.Build
 import android.util.Log
@@ -39,7 +40,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import java.io.IOException
 
 enum class DeviceStatus {
@@ -52,12 +52,14 @@ enum class DeviceStatus {
 }
 
 data class DeviceInfo(
-    val driver: UsbSerialDriver,
+    val devicePath: String,
+    val driver: UsbSerialDriver?,
     val name: String,
     val hasPermission: Boolean,
     val chipType: String = "Unknown",
     val status: DeviceStatus = DeviceStatus.READY,
-    val lastError: String? = null
+    val workingPortIdx: Int = 0,
+    val isMock: Boolean = false
 )
 
 data class TerminalLineData(val tag: String, val message: String, val isError: Boolean = false, val isWarning: Boolean = false)
@@ -67,25 +69,23 @@ data class FlasherUiState(
     val selectedDevice: DeviceInfo? = null,
     val isFlashing: Boolean = false,
     val flashProgress: Float = 0f,
-    val terminalLogs: List<TerminalLineData> = emptyList(),
     val targetChip: String = "Unknown",
     val flashStatus: String = "IDLE",
+    val terminalLogs: List<TerminalLineData> = emptyList(),
     val isCompatibleWithFirmware: Boolean = false
 )
 
 class FlasherViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
-        const val TAG_INFO = "INFO"
-        const val TAG_WARN = "WARN"
-        const val TAG_ERR = "ERR"
-        const val TAG_ESP = "ESP"
-        const val TAG_DEBUG = "DEBUG"
+        const val TAG_DEBUG = "FlasherDebug"
         const val ACTION_PERMISSION = "com.bushers.flasher.USB_PERMISSION"
     }
 
     private val usbManager = application.getSystemService(Context.USB_SERVICE) as UsbManager
     private val hardwareMutex = Mutex()
     private var activePort: UsbSerialPort? = null
+    private var activeConnection: UsbDeviceConnection? = null
+    private var isMockMode = false
 
     private val _uiState = MutableStateFlow(FlasherUiState())
     val uiState: StateFlow<FlasherUiState> = _uiState.asStateFlow()
@@ -94,231 +94,214 @@ class FlasherViewModel(application: Application) : AndroidViewModel(application)
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == ACTION_PERMISSION) {
                 val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
-                val device = if (Build.VERSION.SDK_INT >= 33) {
-                    intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
-                } else {
-                    @Suppress("DEPRECATION")
-                    intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
-                }
-                
-                if (granted && device != null) {
-                    logToUi(TAG_INFO, "USB Permission Granted.")
-                    scanDevices()
-                    viewModelScope.launch {
-                        delay(1000)
-                        val state = _uiState.value
-                        state.devices.find { it.driver.device.deviceName == device.deviceName }?.let { probeChip(it) }
+                Log.d(TAG_DEBUG, "USB Permission: $granted")
+                scanDevices()
+                if (granted) {
+                    val device = if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java) else intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+                    device?.let { usbDev ->
+                        viewModelScope.launch {
+                            delay(1000)
+                            _uiState.value.devices.find { it.devicePath == usbDev.deviceName }?.let { probeChip(it) }
+                        }
                     }
-                } else {
-                    logToUi(TAG_WARN, "USB Permission Denied.")
                 }
             }
         }
     }
 
     init {
+        Log.d(TAG_DEBUG, "ViewModel INIT START (isMockMode=$isMockMode)")
         val filter = IntentFilter(ACTION_PERMISSION)
         ContextCompat.registerReceiver(application, permissionReceiver, filter, ContextCompat.RECEIVER_EXPORTED)
         scanDevices()
     }
 
+    fun setMockMode(enabled: Boolean) {
+        isMockMode = enabled
+        scanDevices()
+        if (enabled) logToUi("INFO", "MOCK MODE ENABLED")
+    }
+
     fun scanDevices() {
-        val drivers = UsbSerialProber.getDefaultProber().findAllDrivers(usbManager)
-        val deviceList = drivers.map { driver ->
+        if (isMockMode) {
+            _uiState.update { it.copy(devices = listOf(
+                DeviceInfo("mock_esp32", null, "Standard ESP32 (MOCK)", true, "Unknown", DeviceStatus.READY, isMock = true),
+                DeviceInfo("mock_s2", null, "ESP32-S2 (MOCK)", true, "Unknown", DeviceStatus.READY, isMock = true)
+            )) }
+            Log.d(TAG_DEBUG, "Mocks populated in scanDevices")
+            return
+        }
+
+        val prober = UsbSerialProber.getDefaultProber()
+        val allDrivers = prober.findAllDrivers(usbManager)
+        
+        val filteredDrivers = allDrivers.filter { driver ->
+            val vid = driver.device.vendorId
+            val pid = driver.device.productId
+            !(vid == 0x303A && pid == 0x1001) // Exclude JTAG
+        }
+
+        val deviceList = filteredDrivers.map { driver ->
             val hasPerm = usbManager.hasPermission(driver.device)
-            val name = driver.device.productName ?: "USB Serial Device"
-            val existing = _uiState.value.devices.find { it.driver.device.deviceName == driver.device.deviceName }
-            
+            val existing = _uiState.value.devices.find { it.devicePath == driver.device.deviceName }
             DeviceInfo(
+                devicePath = driver.device.deviceName,
                 driver = driver,
-                name = name,
+                name = driver.device.productName ?: "USB Serial Device",
                 hasPermission = hasPerm,
                 chipType = existing?.chipType ?: "Unknown",
-                status = if (!hasPerm) DeviceStatus.NEED_PERMISSION else (existing?.status ?: DeviceStatus.READY),
-                lastError = existing?.lastError
+                status = if (hasPerm) (existing?.status ?: DeviceStatus.READY) else DeviceStatus.NEED_PERMISSION
             )
         }
         _uiState.update { it.copy(devices = deviceList) }
+        Log.d(TAG_DEBUG, "Scan: Found ${deviceList.size} devices")
     }
 
-    fun requestPermission(deviceInfo: DeviceInfo) {
-        logToUi(TAG_INFO, "Requesting USB permission...")
-        val pi = PendingIntent.getBroadcast(getApplication(), 0, 
-            Intent(ACTION_PERMISSION).setPackage(getApplication<Application>().packageName), 
-            PendingIntent.FLAG_MUTABLE)
-        usbManager.requestPermission(deviceInfo.driver.device, pi)
+    private fun cleanupResources() {
+        try { activePort?.let { if (it.isOpen) it.close() } } catch (_: Exception) {}
+        try { activeConnection?.close() } catch (_: Exception) {}
+        activePort = null
+        activeConnection = null
     }
 
     fun selectDevice(deviceInfo: DeviceInfo) {
-        _uiState.update { it.copy(
-            selectedDevice = deviceInfo,
-            isCompatibleWithFirmware = deviceInfo.status == DeviceStatus.COMPATIBLE,
-            targetChip = deviceInfo.chipType
-        ) }
-        
-        if (!deviceInfo.hasPermission) {
-            requestPermission(deviceInfo)
-        } else if (deviceInfo.status == DeviceStatus.READY || deviceInfo.status == DeviceStatus.PROBE_FAILED) {
-            probeChip(deviceInfo)
+        Log.d(TAG_DEBUG, "Select call for ${deviceInfo.name}")
+        if (deviceInfo.status == DeviceStatus.INCOMPATIBLE) {
+            logToUi("WARN", "Device blocked: Non-ESP32.")
+            return
+        }
+        _uiState.update { it.copy(selectedDevice = deviceInfo) }
+        if (deviceInfo.isMock || (deviceInfo.hasPermission && deviceInfo.driver != null)) {
+            if (deviceInfo.status != DeviceStatus.COMPATIBLE) probeChip(deviceInfo)
+        } else if (deviceInfo.driver != null) {
+            val flags = if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0
+            val pi = PendingIntent.getBroadcast(getApplication(), 0, Intent(ACTION_PERMISSION).setPackage(getApplication<Application>().packageName), flags)
+            usbManager.requestPermission(deviceInfo.driver.device, pi)
         }
     }
 
     private fun probeChip(deviceInfo: DeviceInfo) {
-        updateDeviceState(deviceInfo, DeviceStatus.PROBING, "Unknown")
+        if (deviceInfo.isMock) {
+            simulateProbe(deviceInfo)
+            return
+        }
+        if (deviceInfo.status == DeviceStatus.PROBING || deviceInfo.driver == null) return
+        updateDeviceState(deviceInfo.devicePath, DeviceStatus.PROBING, "Unknown")
+        
         viewModelScope.launch(Dispatchers.IO) {
             hardwareMutex.withLock {
-                ensurePortClosed()
-                var port: UsbSerialPort? = null
+                cleanupResources()
+                var detectedChip = "Unknown"
+                var finalStatus = DeviceStatus.PROBE_FAILED
+                
                 try {
-                    withTimeout(30000L) {
-                        logToUi(TAG_INFO, "Opening bridge to ${deviceInfo.name}...")
-                        val p = UsbSerial.open(usbManager, deviceInfo.driver)
-                        port = p
-                        activePort = p
-                        delay(200)
-                        
-                        val transport = UsbSerialTransport(p, writeTimeoutMs = 3000)
-                        transport.baudRate = 115200 
-                        val loader = EspLoader(transport, NoopLogger)
-                        val vid = deviceInfo.driver.device.vendorId
-                        val pid = deviceInfo.driver.device.productId
-                        
-                        val strategies = listOf(
-                             if (vid == 0x303A) UsbJtagReset() else ClassicReset(flowControl = (vid == 0x10C4 && pid == 0xEA64)),
-                             if (vid == 0x303A) ClassicReset(flowControl = false) else UsbJtagReset()
-                        )
-                        
-                        var identifiedChip = "Unknown"
-                        var connected = false
-                        for (strategy in strategies) {
-                            try {
-                                logToUi(TAG_INFO, "Trying Reset Strategy: ${strategy.javaClass.simpleName}...")
-                                loader.connect(strategy, attempts = 5)
-                                identifiedChip = loader.chip?.name ?: "Unknown"
-                                connected = true
-                                break
-                            } catch (_: Exception) {}
-                        }
-                        
-                        if (connected) {
-                            val isCompatible = identifiedChip == "ESP32"
-                            withContext(Dispatchers.Main) {
-                                updateDeviceState(deviceInfo, if (isCompatible) DeviceStatus.COMPATIBLE else DeviceStatus.INCOMPATIBLE, identifiedChip)
-                                logToUi(TAG_INFO, ">>> IDENTIFIED: $identifiedChip <<<")
-                            }
-                        } else {
-                            throw IOException("ESP Hardware not responding to serial sync.")
-                        }
-                    }
-                } catch (e: Exception) {
-                    val errorMsg = e.message ?: "Identification Failed"
-                    logToUi(TAG_ERR, "Error: $errorMsg")
-                    withContext(Dispatchers.Main) { 
-                        updateDeviceState(deviceInfo, DeviceStatus.PROBE_FAILED, "Unknown", errorMsg) 
-                    }
-                } finally {
-                    ensurePortClosed()
+                    val conn = usbManager.openDevice(deviceInfo.driver.device) ?: throw IOException("Denied")
+                    activeConnection = conn
+                    val port = deviceInfo.driver.ports.first()
+                    port.open(conn)
+                    activePort = port
+                    port.setParameters(115200, 8, 1, UsbSerialPort.PARITY_NONE)
+                    val transport = UsbSerialTransport(port)
+                    transport.flushInput()
+                    transport.setDtr(false)
+                    transport.setRts(false)
                     delay(1000)
+
+                    val loader = EspLoader(transport, NoopLogger)
+                    loader.connect(ClassicReset(), attempts = 5)
+                    detectedChip = loader.chip?.name ?: "Unknown"
+                    finalStatus = if (detectedChip == "ESP32") DeviceStatus.COMPATIBLE else DeviceStatus.INCOMPATIBLE
+                    
+                } catch (e: Exception) {
+                    Log.e(TAG_DEBUG, "Identification failed: ${e.message}")
+                } finally {
+                    cleanupResources()
+                    withContext(Dispatchers.Main) {
+                        updateDeviceState(deviceInfo.devicePath, finalStatus, detectedChip)
+                        logToUi("INFO", "Chip Detected: $detectedChip (Status: $finalStatus)")
+                    }
                 }
             }
         }
     }
 
-    private fun updateDeviceState(deviceInfo: DeviceInfo, status: DeviceStatus, chipType: String, error: String? = null) {
-        _uiState.update { state ->
-            val updated = state.devices.map { 
-                if (it.driver.device.deviceName == deviceInfo.driver.device.deviceName) 
-                    it.copy(status = status, chipType = chipType, lastError = error) 
-                else it 
-            }
-            val updatedSelected = if (state.selectedDevice?.driver?.device?.deviceName == deviceInfo.driver.device.deviceName) {
-                state.selectedDevice.copy(status = status, chipType = chipType, lastError = error)
-            } else state.selectedDevice
-            
-            state.copy(
-                devices = updated, 
-                selectedDevice = updatedSelected,
-                isCompatibleWithFirmware = updatedSelected?.status == DeviceStatus.COMPATIBLE,
-                targetChip = updatedSelected?.chipType ?: "Unknown"
-            )
+    private fun simulateProbe(deviceInfo: DeviceInfo) {
+        updateDeviceState(deviceInfo.devicePath, DeviceStatus.PROBING, "Unknown")
+        viewModelScope.launch {
+            delay(1500)
+            val chip = if (deviceInfo.name.contains("Standard")) "ESP32" else "ESP32-S2"
+            updateDeviceState(deviceInfo.devicePath, if (chip == "ESP32") DeviceStatus.COMPATIBLE else DeviceStatus.INCOMPATIBLE, chip)
+            logToUi("INFO", "Mock Identify: $chip")
         }
     }
 
-    private fun ensurePortClosed() {
-        try { activePort?.let { if (it.isOpen) it.close() } } catch (_: Exception) {} finally { activePort = null }
+    private fun updateDeviceState(devicePath: String, status: DeviceStatus, chipType: String) {
+        _uiState.update { state ->
+            val updated = state.devices.map { if (it.devicePath == devicePath) it.copy(status = status, chipType = chipType) else it }
+            val updatedSelected = if (state.selectedDevice?.devicePath == devicePath) state.selectedDevice.copy(status = status, chipType = chipType) else state.selectedDevice
+            state.copy(devices = updated, selectedDevice = updatedSelected, isCompatibleWithFirmware = updatedSelected?.status == DeviceStatus.COMPATIBLE, targetChip = updatedSelected?.chipType ?: "Unknown")
+        }
     }
 
     private fun logToUi(tag: String, message: String, isError: Boolean = false, isWarning: Boolean = false) {
-        Log.i("FlasherViewModel", "[$tag] $message")
+        Log.d(TAG_DEBUG, "UI: [$tag] $message")
         _uiState.update { state ->
-            val newLogs = state.terminalLogs.toMutableList()
-            newLogs.add(TerminalLineData(tag, message, isError, isWarning))
-            if (newLogs.size > 200) newLogs.removeAt(0)
-            state.copy(terminalLogs = newLogs)
+            val logs = state.terminalLogs.toMutableList()
+            logs.add(TerminalLineData(tag, message, isError, isWarning))
+            if (logs.size > 100) logs.removeAt(0)
+            state.copy(terminalLogs = logs)
         }
     }
 
     fun startFlashing() {
-        val state = _uiState.value
-        val selected = state.selectedDevice ?: return
-        if (selected.status != DeviceStatus.COMPATIBLE || state.isFlashing) return
-
+        val selected = _uiState.value.selectedDevice ?: return
+        Log.d(TAG_DEBUG, "startFlashing: ${selected.name} status=${selected.status}")
+        if (selected.status != DeviceStatus.COMPATIBLE) return
         _uiState.update { it.copy(isFlashing = true, flashProgress = 0f, flashStatus = "STARTING") }
         
         viewModelScope.launch(Dispatchers.IO) {
+            if (selected.isMock) {
+                for (i in 0..10) {
+                    delay(300)
+                    _uiState.update { it.copy(flashProgress = i / 10f, flashStatus = "MOCK FLASHING") }
+                }
+                _uiState.update { it.copy(flashStatus = "SUCCESS", isFlashing = false) }
+                logToUi("INFO", "MOCK FLASH SUCCESS")
+                return@launch
+            }
             hardwareMutex.withLock {
-                ensurePortClosed()
-                var port: UsbSerialPort? = null
+                cleanupResources()
                 try {
                     val context = getApplication<Application>()
-                    val firmwareBytes = context.assets.open("Bushers_ESP32_DEV_SPI_FULL_SSD1306.ino.merged.bin").readBytes()
-                    
-                    val p = UsbSerial.open(usbManager, selected.driver)
-                    port = p
-                    activePort = p
-                    
-                    val transport = UsbSerialTransport(p, writeTimeoutMs = 3000)
+                    val firmware = context.assets.open("Bushers_ESP32_DEV_SPI_FULL_SSD1306.ino.merged.bin").readBytes()
+                    val conn = usbManager.openDevice(selected.driver!!.device) ?: throw IOException("Denied")
+                    activeConnection = conn
+                    val port = selected.driver.ports.first()
+                    port.open(conn)
+                    activePort = port
+                    port.setParameters(115200, 8, 1, UsbSerialPort.PARITY_NONE)
+                    val transport = UsbSerialTransport(port)
                     val appLogger = object : EspLogger {
-                        override fun info(message: String) { logToUi(TAG_INFO, message) }
+                        override fun info(message: String) { logToUi("ESP", message) }
                         override fun progress(label: String, done: Long, total: Long) {
-                            _uiState.update { it.copy(flashProgress = done.toFloat() / total.toFloat()) }
+                            _uiState.update { it.copy(flashProgress = done.toFloat() / total.toFloat(), flashStatus = "FLASHING") }
                         }
                     }
-                    
                     val loader = EspLoader(transport, appLogger)
-                    val vid = selected.driver.device.vendorId
-                    val pid = selected.driver.device.productId
-                    val resetStrategy = if (vid == 0x303A) UsbJtagReset() else ClassicReset(flowControl = (vid == 0x10C4 && pid == 0xEA64))
-                    
-                    loader.connect(resetStrategy)
+                    loader.connect(ClassicReset())
                     loader.runStub()
-                    if (vid != 0x303A) loader.changeBaud(460_800)
-
-                    _uiState.update { it.copy(flashStatus = "FLASHING") }
-                    val settings = FlashSettings(FlashMode.DIO, getFlashSizeFromBytes(loader.detectFlashSize() ?: 0L), FlashFreq.F40M)
-                    Flasher(loader, appLogger).writeFlash(listOf(FlashSegment(0x0, firmwareBytes, "merged.bin")), settings)
-
-                    logToUi(TAG_INFO, "SUCCESS! Device Flashed.")
-                    _uiState.update { it.copy(flashStatus = "DONE", flashProgress = 1f) }
-                    loader.hardReset(HardReset(flowControl = (vid == 0x10C4 && pid == 0xEA64)))
+                    loader.changeBaud(460_800)
+                    Flasher(loader, appLogger).writeFlash(listOf(FlashSegment(0x0, firmware, "merged.bin")), FlashSettings(FlashMode.DIO, FlashSize.S4MB, FlashFreq.F40M))
+                    _uiState.update { it.copy(flashStatus = "SUCCESS", flashProgress = 1f) }
+                    logToUi("INFO", "SUCCESS!")
                 } catch (e: Exception) {
-                    logToUi(TAG_ERR, "FLASH ERROR: ${e.message}")
+                    logToUi("ERR", "Flash Error: ${e.message}", isError = true)
                     _uiState.update { it.copy(flashStatus = "FAILED") }
                 } finally {
-                    ensurePortClosed()
+                    cleanupResources()
                     withContext(Dispatchers.Main) { _uiState.update { it.copy(isFlashing = false) } }
                 }
             }
-        }
-    }
-
-    private fun getFlashSizeFromBytes(bytes: Long): FlashSize {
-        return when {
-            bytes >= 4L * 1024 * 1024 -> FlashSize.S4MB
-            bytes >= 2L * 1024 * 1024 -> FlashSize.S2MB
-            bytes >= 8L * 1024 * 1024 -> FlashSize.S8MB
-            bytes >= 16L * 1024 * 1024 -> FlashSize.S16MB
-            else -> FlashSize.S2MB
         }
     }
 

@@ -37,11 +37,11 @@ enum class BottomNavItem(val titleRes: Int, val icon: androidx.compose.ui.graphi
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScaffold(
-    content: @Composable (PaddingValues, BottomNavItem) -> Unit
+    selectedTab: BottomNavItem,
+    onTabSelected: (BottomNavItem) -> Unit,
+    content: @Composable (PaddingValues) -> Unit
 ) {
-    var selectedItem by remember { mutableIntStateOf(0) }
     val items = BottomNavItem.entries.toTypedArray()
-    val currentTab = items[selectedItem]
 
     Scaffold(
         topBar = {
@@ -75,18 +75,18 @@ fun MainScaffold(
         },
         bottomBar = {
             NavigationBar {
-                items.forEachIndexed { index, item ->
+                items.forEach { item ->
                     val title = stringResource(item.titleRes)
                     NavigationBarItem(
                         icon = { Icon(item.icon, contentDescription = title) },
                         label = { Text(title, style = MaterialTheme.typography.labelMedium) },
-                        selected = selectedItem == index,
-                        onClick = { selectedItem = index }
+                        selected = selectedTab == item,
+                        onClick = { onTabSelected(item) }
                     )
                 }
             }
         }
     ) { innerPadding ->
-        content(innerPadding, currentTab)
+        content(innerPadding)
     }
 }

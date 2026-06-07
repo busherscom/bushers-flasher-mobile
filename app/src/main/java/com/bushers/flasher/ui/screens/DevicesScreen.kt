@@ -54,7 +54,11 @@ import com.bushers.flasher.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DevicesScreen(viewModel: FlasherViewModel, modifier: Modifier = Modifier) {
+fun DevicesScreen(
+    viewModel: FlasherViewModel,
+    onDeviceSelected: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val uiState by viewModel.uiState.collectAsState()
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -65,27 +69,17 @@ fun DevicesScreen(viewModel: FlasherViewModel, modifier: Modifier = Modifier) {
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // Search & Filter Area
+            // Header Area
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = stringResource(R.string.device_filter),
+                    text = "ESP32 DEVICES",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                OutlinedTextField(
-                    value = "",
-                    onValueChange = {},
-                    placeholder = { Text(stringResource(R.string.search_placeholder)) },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    trailingIcon = { Icon(Icons.Default.FilterList, contentDescription = null) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedIndicatorColor = MaterialTheme.colorScheme.secondary,
-                        unfocusedIndicatorColor = MaterialTheme.colorScheme.outline
-                    ),
-                    shape = RoundedCornerShape(8.dp)
+                Text(
+                    text = "Select a standard ESP32 to flash firmware. JTAG and other variants are blocked.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -102,37 +96,34 @@ fun DevicesScreen(viewModel: FlasherViewModel, modifier: Modifier = Modifier) {
                         deviceName = device.name,
                         icon = Icons.Default.Usb,
                         statusText = when (device.status) {
-                            DeviceStatus.NEED_PERMISSION -> stringResource(R.string.need_permission)
+                            DeviceStatus.NEED_PERMISSION -> "PERMISSION"
                             DeviceStatus.PROBING -> "PROBING..."
                             DeviceStatus.COMPATIBLE -> "COMPATIBLE"
                             DeviceStatus.INCOMPATIBLE -> "INCOMPATIBLE"
                             DeviceStatus.PROBE_FAILED -> "PROBE FAILED"
-                            else -> stringResource(R.string.ready)
+                            else -> "READY"
                         },
                         statusColor = when (device.status) {
                             DeviceStatus.NEED_PERMISSION -> Color(0xFFFAD900)
                             DeviceStatus.COMPATIBLE -> MaterialTheme.colorScheme.secondary
-                            DeviceStatus.INCOMPATIBLE -> MaterialTheme.colorScheme.error
+                            DeviceStatus.INCOMPATIBLE -> MaterialTheme.colorScheme.outline
                             DeviceStatus.PROBE_FAILED -> MaterialTheme.colorScheme.error
                             else -> MaterialTheme.colorScheme.secondary
                         },
                         statusTextColor = when (device.status) {
                             DeviceStatus.NEED_PERMISSION -> Color(0xFF212529)
+                            DeviceStatus.INCOMPATIBLE -> MaterialTheme.colorScheme.onSurfaceVariant
                             else -> Color.White
                         },
                         info1Label = "CHIP TYPE",
                         info1Value = device.chipType,
-                        info2Label = stringResource(R.string.port),
+                        info2Label = "PORT",
                         info2Value = "USB",
-                        isWarning = device.status == DeviceStatus.NEED_PERMISSION || 
-                                    device.status == DeviceStatus.INCOMPATIBLE ||
-                                    device.status == DeviceStatus.PROBE_FAILED,
-                        isOffline = false,
+                        status = device.status,
                         onSelectClick = {
-                            if (device.hasPermission) {
-                                viewModel.selectDevice(device)
-                            } else {
-                                viewModel.requestPermission(device)
+                            viewModel.selectDevice(device)
+                            if (device.status == DeviceStatus.COMPATIBLE) {
+                                onDeviceSelected()
                             }
                         }
                     )
@@ -166,19 +157,14 @@ fun DeviceCard(
     info1Value: String,
     info2Label: String,
     info2Value: String,
-    isWarning: Boolean,
-    isOffline: Boolean,
+    status: DeviceStatus,
     onSelectClick: () -> Unit = {}
 ) {
     ElevatedCard(
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(
-            modifier = Modifier.background(
-                if (isOffline) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent
-            )
-        ) {
+        Column {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -195,13 +181,13 @@ fun DeviceCard(
                         Icon(
                             icon,
                             contentDescription = null,
-                            tint = if (isOffline) MaterialTheme.colorScheme.onSurfaceVariant else statusColor
+                            tint = statusColor
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = deviceName,
                             style = MaterialTheme.typography.titleLarge,
-                            color = if (isOffline) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -233,7 +219,7 @@ fun DeviceCard(
                         Text(
                             text = info1Value,
                             style = MaterialTheme.typography.bodyMedium.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
-                            color = if (isOffline) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                     Column(modifier = Modifier.weight(1f)) {
@@ -245,7 +231,7 @@ fun DeviceCard(
                         Text(
                             text = info2Value,
                             style = MaterialTheme.typography.bodyMedium.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
-                            color = if (isOffline) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -258,30 +244,53 @@ fun DeviceCard(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    if (isOffline) {
-                        OutlinedButton(
-                            onClick = {},
-                            enabled = false,
-                            shape = RoundedCornerShape(4.dp)
-                        ) {
-                            Text("UNAVAILABLE", style = MaterialTheme.typography.labelMedium)
+                    when (status) {
+                        DeviceStatus.INCOMPATIBLE -> {
+                            OutlinedButton(
+                                onClick = {},
+                                enabled = false,
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text("NON-ESP32 BLOCKED", style = MaterialTheme.typography.labelMedium)
+                            }
                         }
-                    } else if (isWarning) {
-                        OutlinedButton(
-                            onClick = onSelectClick,
-                            shape = RoundedCornerShape(4.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.secondary)
-                        ) {
-                            Text("GRANT PERMISSION", style = MaterialTheme.typography.labelMedium)
+                        DeviceStatus.PROBING -> {
+                            Button(
+                                onClick = {},
+                                enabled = false,
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text("PROBING...", style = MaterialTheme.typography.labelMedium)
+                            }
                         }
-                    } else {
-                        Button(
-                            onClick = onSelectClick,
-                            shape = RoundedCornerShape(4.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                        ) {
-                            Text("SELECT", style = MaterialTheme.typography.labelMedium)
+                        DeviceStatus.NEED_PERMISSION -> {
+                            OutlinedButton(
+                                onClick = onSelectClick,
+                                shape = RoundedCornerShape(4.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.secondary)
+                            ) {
+                                Text("GRANT PERMISSION", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                        DeviceStatus.PROBE_FAILED -> {
+                            OutlinedButton(
+                                onClick = onSelectClick,
+                                shape = RoundedCornerShape(4.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Text("RETRY IDENTIFY", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                        else -> {
+                            Button(
+                                onClick = onSelectClick,
+                                shape = RoundedCornerShape(4.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                            ) {
+                                Text(if (status == DeviceStatus.COMPATIBLE) "SELECT" else "IDENTIFY", style = MaterialTheme.typography.labelMedium)
+                            }
                         }
                     }
                 }

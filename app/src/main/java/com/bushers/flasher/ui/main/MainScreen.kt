@@ -5,6 +5,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavKey
@@ -28,7 +32,12 @@ fun MainScreen(
     modifier: Modifier = Modifier,
     viewModel: FlasherViewModel = viewModel()
 ) {
-    MainScaffold { paddingValues, currentTab ->
+    var selectedTab by remember { mutableStateOf(BottomNavItem.Devices) }
+
+    MainScaffold(
+        selectedTab = selectedTab,
+        onTabSelected = { selectedTab = it }
+    ) { paddingValues ->
         Box(
             modifier = modifier
                 .fillMaxSize()
@@ -36,7 +45,7 @@ fun MainScreen(
             contentAlignment = Alignment.Center
         ) {
             AnimatedContent(
-                targetState = currentTab,
+                targetState = selectedTab,
                 transitionSpec = {
                     fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
                 },
@@ -44,7 +53,12 @@ fun MainScreen(
             ) { targetTab ->
                 when (targetTab) {
                     BottomNavItem.Devices -> {
-                        DevicesScreen(viewModel)
+                        DevicesScreen(
+                            viewModel = viewModel,
+                            onDeviceSelected = {
+                                selectedTab = BottomNavItem.Flashing
+                            }
+                        )
                     }
                     BottomNavItem.Flashing -> {
                         FlashingScreen(viewModel)
