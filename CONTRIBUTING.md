@@ -2,15 +2,47 @@
 
 We welcome contributions to the Bushers Flasher Mobile application! By participating in this project, you agree to abide by our code of conduct.
 
-## How to Contribute
+## Development Workflow: Trunk Based Development (tbdflow)
 
-1.  **Fork the repository** on GitHub.
-2.  **Create a new branch** for your feature or bug fix (`git checkout -b feature/your-feature-name`).
-3.  **Write your code**, ensuring you follow the project's coding standards.
-4.  **Test your changes** thoroughly.
-5.  **Commit your changes** with descriptive commit messages (`git commit -m 'Add some feature'`).
-6.  **Push to your branch** (`git push origin feature/your-feature-name`).
-7.  **Create a Pull Request** against the `main` branch of this repository.
+This project strictly follows **tbdflow** (Trunk Based Development).
+1. **No long-lived feature branches**: All development happens in short-lived branches (living less than a couple of days).
+2. **Branch Naming**: Prefix branches with your initials or a short identifier, and a ticket/issue number if applicable (e.g., `gb/123-add-scan-button`).
+3. **Merge frequently**: Integrate your work into the `main` trunk as frequently as possible via Pull Requests.
+4. **Rebase, don't merge**: Always rebase your short-lived branch on top of `main` before submitting a Pull Request to keep the history linear.
+
+## Commit Message Guidelines
+
+We use **Conventional Commits** to auto-generate changelogs and maintain a readable history. 
+**CRITICAL: The first line (header) MUST NOT exceed 50 characters.**
+
+### Format:
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Types:
+*   `feat`: A new feature
+*   `fix`: A bug fix
+*   `docs`: Documentation only changes
+*   `style`: Changes that do not affect the meaning of the code (white-space, formatting, etc)
+*   `refactor`: A code change that neither fixes a bug nor adds a feature
+*   `perf`: A code change that improves performance
+*   `test`: Adding missing tests or correcting existing tests
+*   `chore`: Changes to the build process or auxiliary tools and libraries
+
+**Example (Valid - under 50 chars):**
+```
+feat(ui): add scan button
+```
+
+**Example (Invalid - over 50 chars):**
+```
+feat(ui): add a scan button to the devices screen so the user can scan for new devices
+```
 
 ## Coding Standards
 
@@ -21,11 +53,3 @@ We welcome contributions to the Bushers Flasher Mobile application! By participa
     ```bash
     ./gradlew lintDebug
     ```
-
-## Bug Reports and Feature Requests
-
-Please use the GitHub Issue Tracker to report bugs or request new features. When reporting a bug, include:
-*   Your device model and Android version.
-*   Steps to reproduce the issue.
-*   Expected behavior vs. actual behavior.
-*   Screenshots or logs if applicable.
