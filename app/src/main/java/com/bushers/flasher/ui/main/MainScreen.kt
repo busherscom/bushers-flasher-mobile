@@ -24,6 +24,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 
+import androidx.compose.runtime.collectAsState
+import com.bushers.flasher.ui.main.DeviceStatus
+
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
@@ -32,7 +35,15 @@ fun MainScreen(
     modifier: Modifier = Modifier,
     viewModel: FlasherViewModel = viewModel()
 ) {
+    val uiState by viewModel.uiState.collectAsState()
     var selectedTab by remember { mutableStateOf(BottomNavItem.Devices) }
+
+    // AUTO-NAVIGATE on success
+    androidx.compose.runtime.LaunchedEffect(uiState.selectedDevice?.status) {
+        if (uiState.selectedDevice?.status == DeviceStatus.COMPATIBLE) {
+            selectedTab = BottomNavItem.Flashing
+        }
+    }
 
     MainScaffold(
         selectedTab = selectedTab,

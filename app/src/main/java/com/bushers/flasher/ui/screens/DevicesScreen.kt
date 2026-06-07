@@ -122,9 +122,6 @@ fun DevicesScreen(
                         status = device.status,
                         onSelectClick = {
                             viewModel.selectDevice(device)
-                            if (device.status == DeviceStatus.COMPATIBLE) {
-                                onDeviceSelected()
-                            }
                         }
                     )
                 }
