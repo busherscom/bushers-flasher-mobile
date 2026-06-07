@@ -1,0 +1,19 @@
+esptool-kt
+Copyright 2026 Alexander Salas (ajsb85)
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+This product is an independent, clean-room Kotlin reimplementation of the
+Espressif serial bootloader protocol. Protocol behavior was studied from:
+
+  - esp-serial-flasher  (Espressif, Apache-2.0)
+  - esptool-js          (Espressif, Apache-2.0)
+  - esptool             (Espressif, GPL-2.0) — referenced for protocol details
+
+The bundled flasher-stub blobs under core/src/main/resources/stubs/ originate
+from Espressif's flasher stub as redistributed by esptool-js (Apache-2.0).
+"ESP32", "ESP8266" and related marks are trademarks of Espressif Systems.

@@ -44,9 +44,18 @@ import com.bushers.flasher.theme.JetBrainsMono
 
 import androidx.compose.material3.ExtendedFloatingActionButton
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import com.bushers.flasher.ui.main.FlasherViewModel
+
+import androidx.compose.ui.res.stringResource
+import com.bushers.flasher.R
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DevicesScreen(modifier: Modifier = Modifier) {
+fun DevicesScreen(viewModel: FlasherViewModel, modifier: Modifier = Modifier) {
+    val uiState by viewModel.uiState.collectAsState()
+
     Box(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -58,14 +67,14 @@ fun DevicesScreen(modifier: Modifier = Modifier) {
             // Search & Filter Area
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "DEVICE FILTER",
+                    text = stringResource(R.string.device_filter),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 OutlinedTextField(
                     value = "",
                     onValueChange = {},
-                    placeholder = { Text("Search COM ports, MAC addresses...") },
+                    placeholder = { Text(stringResource(R.string.search_placeholder)) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     trailingIcon = { Icon(Icons.Default.FilterList, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth(),
@@ -79,60 +88,60 @@ fun DevicesScreen(modifier: Modifier = Modifier) {
                 )
             }
 
-            // Connected Device Card
-            DeviceCard(
-                deviceName = "ESP32-S3-WROOM-1",
-                icon = Icons.Default.Usb,
-                statusText = "CONNECTED",
-                statusColor = MaterialTheme.colorScheme.secondary,
-                statusTextColor = MaterialTheme.colorScheme.onSecondary,
-                info1Label = "PORT",
-                info1Value = "COM4",
-                info2Label = "MAC ADDRESS",
-                info2Value = "34:85:18:01:A2:4B",
-                isWarning = false,
-                isOffline = false
-            )
-
-            // Warning Device Card
-            val warningColor = Color(0xFFFAD900)
-            val onWarningColor = Color(0xFF212529)
-            DeviceCard(
-                deviceName = "ESP32-C3-MINI-1",
-                icon = Icons.Default.Wifi,
-                statusText = "WEAK SIGNAL",
-                statusColor = warningColor,
-                statusTextColor = onWarningColor,
-                info1Label = "IP ADDRESS",
-                info1Value = "192.168.1.104",
-                info2Label = "RSSI",
-                info2Value = "-82 dBm",
-                isWarning = true,
-                isOffline = false
-            )
-
-            // Offline Device Card
-            DeviceCard(
-                deviceName = "Unknown ESP8266",
-                icon = Icons.Default.UsbOff,
-                statusText = "OFFLINE",
-                statusColor = MaterialTheme.colorScheme.surfaceVariant,
-                statusTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                info1Label = "PORT",
-                info1Value = "COM3",
-                info2Label = "LAST SEEN",
-                info2Value = "10 mins ago",
-                isWarning = false,
-                isOffline = true
-            )
+            if (uiState.devices.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.no_devices_found),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 32.dp)
+                )
+            } else {
+                uiState.devices.forEach { device ->
+                    DeviceCard(
+                        deviceName = device.name,
+                        icon = Icons.Default.Usb,
+                        statusText = when {
+                            !device.hasPermission -> stringResource(R.string.need_permission)
+                            device.chipType == "Unknown" && device.isProbing -> "PROBING..."
+                            device.chipType != "Unknown" && device.isCompatible -> "COMPATIBLE"
+                            device.chipType != "Unknown" && !device.isCompatible -> "INCOMPATIBLE"
+                            else -> stringResource(R.string.ready)
+                        },
+                        statusColor = when {
+                            !device.hasPermission -> Color(0xFFFAD900)
+                            device.chipType != "Unknown" && device.isCompatible -> MaterialTheme.colorScheme.secondary
+                            device.chipType != "Unknown" && !device.isCompatible -> MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.secondary
+                        },
+                        statusTextColor = when {
+                            !device.hasPermission -> Color(0xFF212529)
+                            else -> Color.White
+                        },
+                        info1Label = "CHIP TYPE",
+                        info1Value = device.chipType,
+                        info2Label = "VID:PID",
+                        info2Value = "${String.format("%04X", device.driver.device.vendorId)}:${String.format("%04X", device.driver.device.productId)}",
+                        isWarning = !device.hasPermission || (device.chipType != "Unknown" && !device.isCompatible),
+                        isOffline = false,
+                        onSelectClick = {
+                            if (device.hasPermission) {
+                                viewModel.selectDevice(device)
+                                // Auto-navigate is not implemented yet, so we stay on screen or manually navigate
+                            } else {
+                                viewModel.requestPermission(device)
+                            }
+                        }
+                    )
+                }
+            }
             
             Spacer(modifier = Modifier.height(88.dp)) // For FAB
         }
 
         ExtendedFloatingActionButton(
-            text = { Text("SCAN", style = MaterialTheme.typography.labelLarge) },
-            icon = { Icon(Icons.Default.Radar, contentDescription = "Scan") },
-            onClick = { /* TODO */ },
+            text = { Text(stringResource(R.string.scan), style = MaterialTheme.typography.labelLarge) },
+            icon = { Icon(Icons.Default.Radar, contentDescription = null) },
+            onClick = { viewModel.scanDevices() },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(24.dp),
@@ -154,7 +163,8 @@ fun DeviceCard(
     info2Label: String,
     info2Value: String,
     isWarning: Boolean,
-    isOffline: Boolean
+    isOffline: Boolean,
+    onSelectClick: () -> Unit = {}
 ) {
     ElevatedCard(
         shape = RoundedCornerShape(16.dp),
@@ -254,16 +264,16 @@ fun DeviceCard(
                         }
                     } else if (isWarning) {
                         OutlinedButton(
-                            onClick = {},
+                            onClick = onSelectClick,
                             shape = RoundedCornerShape(4.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.secondary)
                         ) {
-                            Text("SELECT", style = MaterialTheme.typography.labelMedium)
+                            Text("GRANT PERMISSION", style = MaterialTheme.typography.labelMedium)
                         }
                     } else {
                         Button(
-                            onClick = {},
+                            onClick = onSelectClick,
                             shape = RoundedCornerShape(4.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                         ) {

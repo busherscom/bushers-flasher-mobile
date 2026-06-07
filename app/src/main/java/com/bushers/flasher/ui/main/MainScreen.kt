@@ -20,10 +20,13 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 
+import androidx.lifecycle.viewmodel.compose.viewModel
+
 @Composable
 fun MainScreen(
     onItemClick: (NavKey) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: FlasherViewModel = viewModel()
 ) {
     MainScaffold { paddingValues, currentTab ->
         Box(
@@ -41,10 +44,10 @@ fun MainScreen(
             ) { targetTab ->
                 when (targetTab) {
                     BottomNavItem.Devices -> {
-                        DevicesScreen()
+                        DevicesScreen(viewModel)
                     }
                     BottomNavItem.Flashing -> {
-                        FlashingScreen()
+                        FlashingScreen(viewModel)
                     }
                     BottomNavItem.About -> {
                         AboutScreen()

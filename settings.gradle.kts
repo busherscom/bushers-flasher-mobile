@@ -22,6 +22,7 @@ dependencyResolutionManagement {
             }
         }
         mavenCentral()
+        maven { url = java.net.URI("https://jitpack.io") }
     }
 }
 
@@ -31,3 +32,11 @@ plugins {
 
 rootProject.name = "Bushers Flasher"
 include(":app")
+include(":core")
+project(":core").projectDir = file("esptool-kt/core")
+
+include(":android")
+project(":android").projectDir = file("esptool-kt/android")
+
+include(":usbserial")
+project(":usbserial").projectDir = file("usbserial-kt/usbserial")

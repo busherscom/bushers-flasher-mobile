@@ -9,7 +9,7 @@ android {
     compileSdk = 36
     defaultConfig {
         applicationId = "com.bushers.flasher"
-        minSdk = 23
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -66,6 +66,11 @@ dependencies {
   implementation(libs.coil.svg)
   implementation(libs.androidx.core.splashscreen)
   implementation(libs.androidx.compose.material3)
+  
+  implementation(project(":core"))
+  implementation(project(":android"))
+  implementation(project(":usbserial"))
+  
   // Tooling
   debugImplementation(libs.androidx.compose.ui.tooling)
   // Instrumented tests

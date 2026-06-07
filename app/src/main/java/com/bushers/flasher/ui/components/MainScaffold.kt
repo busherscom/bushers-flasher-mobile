@@ -25,10 +25,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.font.FontWeight
 
-enum class BottomNavItem(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    Devices("Devices", Icons.Default.Router),
-    Flashing("Flashing", Icons.Default.Bolt),
-    About("About", Icons.Default.Info)
+import androidx.compose.ui.res.stringResource
+import com.bushers.flasher.R
+
+enum class BottomNavItem(val titleRes: Int, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    Devices(R.string.devices, Icons.Default.Router),
+    Flashing(R.string.flashing, Icons.Default.Bolt),
+    About(R.string.about, Icons.Default.Info)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,7 +48,7 @@ fun MainScaffold(
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        text = "System Status",
+                        text = stringResource(R.string.system_status),
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -54,7 +57,7 @@ fun MainScaffold(
                     IconButton(onClick = { /* TODO */ }) {
                         Icon(
                             imageVector = Icons.Default.Memory,
-                            contentDescription = "Memory",
+                            contentDescription = stringResource(R.string.memory),
                             tint = MaterialTheme.colorScheme.secondary
                         )
                     }
@@ -63,7 +66,7 @@ fun MainScaffold(
                     IconButton(onClick = { /* TODO */ }) {
                         Icon(
                             imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings",
+                            contentDescription = stringResource(R.string.settings),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -73,9 +76,10 @@ fun MainScaffold(
         bottomBar = {
             NavigationBar {
                 items.forEachIndexed { index, item ->
+                    val title = stringResource(item.titleRes)
                     NavigationBarItem(
-                        icon = { Icon(item.icon, contentDescription = item.title) },
-                        label = { Text(item.title, style = MaterialTheme.typography.labelMedium) },
+                        icon = { Icon(item.icon, contentDescription = title) },
+                        label = { Text(title, style = MaterialTheme.typography.labelMedium) },
                         selected = selectedItem == index,
                         onClick = { selectedItem = index }
                     )

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <usb-device vendor-id="4292" />  <!-- Silicon Labs CP210x 0x10C4 -->
+    <usb-device vendor-id="6790" />  <!-- WCH CH34x 0x1A86 -->
+    <usb-device vendor-id="12346" /> <!-- Espressif native USB 0x303A -->
+    <usb-device vendor-id="1027" />  <!-- FTDI 0x0403 -->
+</resources>

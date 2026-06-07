@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.bushers.flasher.R
 
+import androidx.compose.ui.res.stringResource
+
 @Composable
 fun AboutScreen(modifier: Modifier = Modifier) {
     Column(
@@ -48,7 +50,7 @@ fun AboutScreen(modifier: Modifier = Modifier) {
         ) {
             AsyncImage(
                 model = R.raw.bushers_logo,
-                contentDescription = "Bushers Corporate Logo",
+                contentDescription = stringResource(R.string.app_name),
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit
             )
@@ -81,7 +83,7 @@ fun AboutScreen(modifier: Modifier = Modifier) {
                     color = MaterialTheme.colorScheme.secondaryContainer,
                 ) {
                     Text(
-                        text = "VERSION 2.4.1-RC",
+                        text = stringResource(R.string.version_format, "2.4.1-RC"),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
@@ -91,7 +93,7 @@ fun AboutScreen(modifier: Modifier = Modifier) {
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
-                    text = "Advanced firmware deployment and diagnostics tool engineered for precision hardware flashing. Ensures reliable communication and integrity verification across all supported device interfaces.",
+                    text = stringResource(R.string.app_description),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -116,7 +118,7 @@ fun AboutScreen(modifier: Modifier = Modifier) {
             ) {
                 Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.size(12.dp))
-                Text("VISIT BUSHERS.COM", style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(R.string.visit_bushers), style = MaterialTheme.typography.labelMedium)
             }
 
             OutlinedButton(
@@ -130,7 +132,7 @@ fun AboutScreen(modifier: Modifier = Modifier) {
             ) {
                 Icon(Icons.AutoMirrored.Filled.Help, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.size(12.dp))
-                Text("DOCUMENTATION & SUPPORT", style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(R.string.docs_and_support), style = MaterialTheme.typography.labelMedium)
             }
         }
     }

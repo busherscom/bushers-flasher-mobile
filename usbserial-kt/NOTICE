@@ -1,0 +1,13 @@
+usb-serial-for-android-kt
+Copyright 2024-2026 Alexander Salas (ajsb85)
+
+This product is a Kotlin reimplementation derived from usb-serial-for-android
+(https://github.com/mik3y/usb-serial-for-android), used under the MIT License:
+
+  Copyright (c) 2011-2013 Google Inc.
+  Copyright (c) 2013 Mike Wakerly
+
+The USB control-transfer protocols for the CP210x, CH34x, and CDC-ACM drivers
+are derived from that project. "ESP32", "ESP8266" and related marks are
+trademarks of Espressif Systems; "Silicon Labs", "WCH", "FTDI" are trademarks
+of their respective owners.

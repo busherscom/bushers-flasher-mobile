@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -36,8 +37,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.bushers.flasher.theme.JetBrainsMono
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import com.bushers.flasher.ui.main.FlasherViewModel
+
+import androidx.compose.ui.res.stringResource
+import com.bushers.flasher.R
+
 @Composable
-fun FlashingScreen(modifier: Modifier = Modifier) {
+fun FlashingScreen(viewModel: FlasherViewModel, modifier: Modifier = Modifier) {
+    val uiState by viewModel.uiState.collectAsState()
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -56,7 +66,7 @@ fun FlashingScreen(modifier: Modifier = Modifier) {
                     .padding(20.dp)
             ) {
                 Text(
-                    text = "TARGET DEVICE",
+                    text = stringResource(R.string.target_device),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -67,7 +77,7 @@ fun FlashingScreen(modifier: Modifier = Modifier) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "ESP32-S3 WROOM-1",
+                        text = uiState.selectedDevice?.name ?: stringResource(R.string.no_devices_found),
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.SemiBold
@@ -77,7 +87,7 @@ fun FlashingScreen(modifier: Modifier = Modifier) {
                         shape = RoundedCornerShape(4.dp)
                     ) {
                         Text(
-                            text = "CONNECTED",
+                            text = if (uiState.selectedDevice != null) "CONNECTED" else "DISCONNECTED",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSecondary,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -93,12 +103,12 @@ fun FlashingScreen(modifier: Modifier = Modifier) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Port",
+                        text = stringResource(R.string.chip),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "/dev/ttyUSB0",
+                        text = uiState.targetChip,
                         style = MaterialTheme.typography.bodyMedium.copy(fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -113,7 +123,7 @@ fun FlashingScreen(modifier: Modifier = Modifier) {
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.size(192.dp)) {
                 CircularProgressIndicator(
-                    progress = { 0.68f },
+                    progress = { uiState.flashProgress },
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.secondary,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -121,12 +131,12 @@ fun FlashingScreen(modifier: Modifier = Modifier) {
                 )
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "68%",
+                        text = "${(uiState.flashProgress * 100).toInt()}%",
                         style = MaterialTheme.typography.headlineLarge,
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        text = "FLASHING...",
+                        text = uiState.flashStatus,
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -137,7 +147,7 @@ fun FlashingScreen(modifier: Modifier = Modifier) {
         // Terminal Output Log
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "LIVE TERMINAL LOG",
+                text = stringResource(R.string.live_terminal_log),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 4.dp)
@@ -155,43 +165,63 @@ fun FlashingScreen(modifier: Modifier = Modifier) {
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    TerminalLine("INFO", "Connecting to /dev/ttyUSB0...", Color(0xFFD7E2FF))
-                    TerminalLine("INFO", "Chip is ESP32-S3 (revision v0.1)", Color(0xFFD7E2FF))
-                    TerminalLine("INFO", "Features: WiFi, BLE", Color(0xFFD7E2FF))
-                    TerminalLine("INFO", "MAC: 7c:df:a1:e0:1a:2b", Color(0xFFD7E2FF))
-                    TerminalLine("INFO", "Uploading stub...", Color(0xFFD7E2FF))
-                    TerminalLine("INFO", "Running stub...", Color(0xFFD7E2FF))
-                    TerminalLine("INFO", "Changing baud rate to 460800", Color(0xFFD7E2FF))
-                    TerminalLine("WARN", "Unexpected response from chip, retrying...", Color(0xFFFAD900))
-                    TerminalLine("INFO", "Erasing flash (this may take a while)...", Color(0xFFD7E2FF))
-                    TerminalLine("INFO", "Writing at 0x00010000... (24 %)", Color(0xFFD7E2FF))
-                    TerminalLine("INFO", "Writing at 0x00014000... (48 %)", Color(0xFFD7E2FF))
-                    TerminalLine("ERR", "Checksum mismatch at 0x00014000. Re-transmitting.", Color(0xFFBB121A))
-                    TerminalLine("INFO", "Writing at 0x00014000... (48 %) - RETRY OK", Color(0xFFD7E2FF))
-                    TerminalLine("INFO", "Writing at 0x00018000... (68 %)", Color(0xFFD7E2FF))
+                    uiState.terminalLogs.forEach { logLine ->
+                        val color = when {
+                            logLine.isError -> Color(0xFFBB121A) // Red for error
+                            logLine.isWarning -> Color(0xFFFAD900) // Yellow for warning
+                            else -> Color(0xFFD7E2FF) // Light blue for info
+                        }
+                        TerminalLine(logLine.tag, logLine.message, color)
+                    }
                 }
             }
         }
 
-        // Action Button
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Button(
-                onClick = { /* TODO */ },
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(4.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            ) {
-                Icon(Icons.Default.Cancel, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("ABORT FLASHING", style = MaterialTheme.typography.titleLarge)
+        // Action Buttons
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (!uiState.isFlashing && uiState.flashStatus != "SUCCESS") {
+                Button(
+                    onClick = { viewModel.startFlashing() },
+                    enabled = uiState.selectedDevice != null && uiState.isCompatibleWithFirmware,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondary,
+                        contentColor = MaterialTheme.colorScheme.onSecondary
+                    )
+                ) {
+                    Icon(Icons.Default.Bolt, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("START FLASHING", style = MaterialTheme.typography.titleLarge)
+                }
             }
+
+            if (uiState.isFlashing) {
+                Button(
+                    onClick = { /* TODO: Support abort */ },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(4.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Icon(Icons.Default.Cancel, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.abort_flashing), style = MaterialTheme.typography.titleLarge)
+                }
+            }
+            
             Text(
-                text = "Do not disconnect device while flashing is active.",
+                text = if (uiState.isCompatibleWithFirmware || uiState.selectedDevice == null) 
+                    stringResource(R.string.do_not_disconnect)
+                else 
+                    "INCOMPATIBLE HARDWARE DETECTED",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (uiState.isCompatibleWithFirmware || uiState.selectedDevice == null) 
+                    MaterialTheme.colorScheme.onSurfaceVariant 
+                else 
+                    MaterialTheme.colorScheme.error,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
             )

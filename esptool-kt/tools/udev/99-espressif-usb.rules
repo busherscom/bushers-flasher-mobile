@@ -1,0 +1,40 @@
+# Espressif USB + common USB-UART bridges — manufacturing/flashing access rules
+#
+# Grants non-root access (group "plugdev", and "uaccess" for the logged-in user) to every
+# Espressif native-USB device and the usual external bridge chips, and tells ModemManager to
+# leave them alone (its probing can interfere with flashing on a production line).
+#
+# Install:
+#   sudo cp 99-espressif-usb.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+#   sudo usermod -aG plugdev "$USER"     # then re-login
+#
+# One VID line covers all ~900 Espressif PIDs (S2-OTG 0x0002, USB-Serial-JTAG 0x1001,
+# P4-HS 0x1007, TinyUSB 0x0010-0x0013, devkit UF2/CircuitPython 0x7xxx, community 0x8xxx).
+
+# --- Espressif native USB (VID 0x303A) ---
+SUBSYSTEM=="usb",  ATTR{idVendor}=="303a", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+SUBSYSTEM=="tty",  ATTRS{idVendor}=="303a", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# --- Silicon Labs CP210x (CP2102/3/4/5/8/9) ---
+SUBSYSTEM=="usb",  ATTR{idVendor}=="10c4", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+SUBSYSTEM=="tty",  ATTRS{idVendor}=="10c4", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# --- WCH CH34x (CH340/CH341) and CH9102 (1a86) ---
+SUBSYSTEM=="usb",  ATTR{idVendor}=="1a86", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+SUBSYSTEM=="tty",  ATTRS{idVendor}=="1a86", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# --- FTDI (FT232R/FT231X/...) ---
+SUBSYSTEM=="usb",  ATTR{idVendor}=="0403", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+SUBSYSTEM=="tty",  ATTRS{idVendor}=="0403", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# --- Prolific PL2303 (067b) ---
+SUBSYSTEM=="usb",  ATTR{idVendor}=="067b", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+SUBSYSTEM=="tty",  ATTRS{idVendor}=="067b", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# --- Keep ModemManager away from flashing devices (avoids probe interference) ---
+ACTION=="add|change", SUBSYSTEM=="usb", ATTR{idVendor}=="303a", ENV{ID_MM_DEVICE_IGNORE}="1"
+ACTION=="add|change", SUBSYSTEM=="usb", ATTR{idVendor}=="10c4", ENV{ID_MM_DEVICE_IGNORE}="1"
+ACTION=="add|change", SUBSYSTEM=="usb", ATTR{idVendor}=="1a86", ENV{ID_MM_DEVICE_IGNORE}="1"
+ACTION=="add|change", SUBSYSTEM=="usb", ATTR{idVendor}=="0403", ENV{ID_MM_DEVICE_IGNORE}="1"
+ACTION=="add|change", SUBSYSTEM=="usb", ATTR{idVendor}=="067b", ENV{ID_MM_DEVICE_IGNORE}="1"

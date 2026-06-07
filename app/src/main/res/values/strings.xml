@@ -1,3 +1,27 @@
 <resources>
     <string name="app_name">Bushers Flasher</string>
+    <string name="system_status">System Status</string>
+    <string name="memory">Memory</string>
+    <string name="settings">Settings</string>
+    <string name="devices">Devices</string>
+    <string name="flashing">Flashing</string>
+    <string name="about">About</string>
+    <string name="device_filter">DEVICE FILTER</string>
+    <string name="search_placeholder">Search COM ports, MAC addresses...</string>
+    <string name="no_devices_found">No devices found.</string>
+    <string name="scan">SCAN</string>
+    <string name="target_device">TARGET DEVICE</string>
+    <string name="port">Port</string>
+    <string name="chip">Chip</string>
+    <string name="live_terminal_log">LIVE TERMINAL LOG</string>
+    <string name="abort_flashing">ABORT FLASHING</string>
+    <string name="do_not_disconnect">Do not disconnect device while flashing is active.</string>
+    <string name="visit_bushers">VISIT BUSHERS.COM</string>
+    <string name="docs_and_support">DOCUMENTATION &amp; SUPPORT</string>
+    <string name="app_description">Advanced firmware deployment and diagnostics tool engineered for precision hardware flashing. Ensures reliable communication and integrity verification across all supported device interfaces.</string>
+    <string name="version_format">VERSION %1$s</string>
+    <string name="ready">READY</string>
+    <string name="need_permission">NEED PERMISSION</string>
+    <string name="grant_permission">GRANT PERMISSION</string>
+    <string name="select">SELECT</string>
 </resources>

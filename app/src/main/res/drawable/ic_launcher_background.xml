@@ -8,19 +8,25 @@
     <path
         android:fillColor="#FDD835"
         android:pathData="M1553.72 -242.541H-242.541V1553.72H1553.72V-242.541Z" />
-    <!-- Gradient Overlay Shadow -->
-    <path
-        android:pathData="M1555.54 930.04L804.21 180.536L705.735 366.544L556.199 217.008L448.606 242.539L558.023 351.955V620.026L404.839 466.843L348.307 523.375L461.371 636.439V780.504L320.953 824.271L415.781 917.275L320.953 1097.81L778.68 1555.54H1555.54V930.04Z">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:startX="1461.08"
-                android:startY="1522.83"
-                android:endX="366.673"
-                android:endY="451.13"
-                android:type="linear">
-                <item android:offset="0" android:color="#00F9A825"/>
-                <item android:offset="1" android:color="#FFF9A825"/>
-            </gradient>
-        </aapt:attr>
-    </path>
+    <!-- Scaled Gradient Overlay Shadow -->
+    <group
+        android:scaleX="0.6"
+        android:scaleY="0.6"
+        android:translateX="262.6"
+        android:translateY="262.6">
+        <path
+            android:pathData="M1555.54 930.04L804.21 180.536L705.735 366.544L556.199 217.008L448.606 242.539L558.023 351.955V620.026L404.839 466.843L348.307 523.375L461.371 636.439V780.504L320.953 824.271L415.781 917.275L320.953 1097.81L778.68 1555.54H1555.54V930.04Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="1461.08"
+                    android:startY="1522.83"
+                    android:endX="366.673"
+                    android:endY="451.13"
+                    android:type="linear">
+                    <item android:offset="0" android:color="#00F9A825"/>
+                    <item android:offset="1" android:color="#FFF9A825"/>
+                </gradient>
+            </aapt:attr>
+        </path>
+    </group>
 </vector>

@@ -1,0 +1,20 @@
+[versions]
+kotlin = "2.3.21"
+agp = "8.7.3"
+androidxCore = "1.13.1"
+junit = "4.13.2"
+mockk = "1.13.13"
+
+[libraries]
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
+junit = { module = "junit:junit", version.ref = "junit" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+
+[plugins]
+android-library = { id = "com.android.library", version.ref = "agp" }
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.8" }
+dokka = { id = "org.jetbrains.dokka", version = "2.0.0" }
+spotless = { id = "com.diffplug.spotless", version = "7.0.2" }
